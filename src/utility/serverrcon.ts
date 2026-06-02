@@ -9,6 +9,15 @@ const RCON_TIMEOUT_MS = config.has("server.serverPingTimeoutMs")
   ? config.get<number>("server.serverPingTimeoutMs")
   : 5000;
 
+// How long to wait for additional RCON packets after the last one before
+// considering the response complete. CS2 sends an empty acknowledgement packet
+// before the real command output, so this must comfortably exceed the network
+// latency/jitter to the game server — otherwise we finalize on the empty ack
+// and lose the actual (e.g. JSON) payload. Tunable for far/high-latency servers.
+const RCON_RESPONSE_IDLE_MS = config.has("server.rconResponseIdleMs")
+  ? config.get<number>("server.rconResponseIdleMs")
+  : 300;
+
 /**
  * Creates a new server object to run various tasks.
  * @class
@@ -19,7 +28,7 @@ class ServerRcon {
   password: string;
   private static readonly AUTH_PACKET_TYPE = 3;
   private static readonly EXEC_PACKET_TYPE = 2;
-  private static readonly COMMAND_RESPONSE_IDLE_MS = 75;
+  private static readonly COMMAND_RESPONSE_IDLE_MS = RCON_RESPONSE_IDLE_MS;
 
   /**
    * Represents a game server.
