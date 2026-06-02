@@ -42,6 +42,21 @@ import { router as v2BackupRouter } from "./src/routes/v2/backupapi.js";
 
 const app = express();
 
+// Behind Railway's (or any) reverse proxy, trust the X-Forwarded-* headers so
+// that secure cookies and req.protocol are evaluated correctly.
+app.set("trust proxy", 1);
+
+// When G5API and the front end live on different domains (the typical Railway
+// setup), the session cookie must be SameSite=None; Secure to survive the
+// cross-site, credentialed requests the SPA makes. Locally we keep the relaxed
+// defaults so http://localhost still works.
+const isProduction = process.env.NODE_ENV === "production";
+const sessionCookie: session.CookieOptions = {
+  maxAge: 86400000,
+  secure: isProduction,
+  sameSite: isProduction ? "none" : "lax",
+};
+
 app.use(logger("dev"));
 app.use(express.raw({ type: "application/octet-stream", limit: "2gb" }));
 app.use(express.json({ limit: "512kb" }));
@@ -77,7 +92,7 @@ if (config.get("server.useRedis")) {
     resave: false,
     saveUninitialized: true,
     store: new RedisStore(redisCfg),
-    cookie: { maxAge: 86400000 },
+    cookie: sessionCookie,
   });
   process.on("exit", function () {
     redisClient.quit();
@@ -88,7 +103,7 @@ if (config.get("server.useRedis")) {
     name: "G5API",
     resave: false,
     saveUninitialized: true,
-    cookie: { maxAge: 86400000 },
+    cookie: sessionCookie,
   });
 }
 
